@@ -1,81 +1,283 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
-import { FaHome, FaRegUser } from "react-icons/fa";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import {
+  FaHome,
+  FaRegUser,
+  FaBookOpen,
+  FaHeadphones,
+  FaFileDownload,
+} from "react-icons/fa";
 import { FaBarsProgress } from "react-icons/fa6";
 import { RiLogoutCircleLine } from "react-icons/ri";
+import { logoutUser } from "../redux/action";
+
+const navigation = [
+  { label: "Dashboard", to: "/Dashboard", icon: FaHome },
+  { label: "Profile", to: "/studentprofile", icon: FaRegUser },
+  { label: "Leaderboard", to: "/leaderboard", icon: FaBarsProgress },
+];
+
+const lessonTypeLabels = {
+  text: "Reading lesson",
+  audio: "Audio lesson",
+  file: "Lesson resource",
+};
 
 const StudentLecture = () => {
   const [lessons, setLessons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [reload, setReload] = useState(0);
+
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   useEffect(() => {
+    let isActive = true;
+
     const fetchLessons = async () => {
+      setLoading(true);
+      setError("");
+
       try {
         const response = await axios.get(
-          "http://localhost:8080/api/users/lessons"
+          "http://localhost:8080/api/users/lessons",
         );
-        setLessons(response.data);
-      } catch (error) {
-        console.error("Error fetching lessons:", error);
+
+        if (isActive) {
+          setLessons(Array.isArray(response.data) ? response.data : []);
+        }
+      } catch {
+        if (isActive) {
+          setError("Lessons couldn’t be loaded. Please try again.");
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
 
     fetchLessons();
-  }, []);
+
+    return () => {
+      isActive = false;
+    };
+  }, [reload]);
+
+  const handleLogout = () => {
+    dispatch(logoutUser());
+    navigate("/");
+  };
+
+  const renderLessonContent = (lesson) => {
+    if (lesson.lessonType === "text") {
+      return lesson.textLesson ? (
+        <p className="whitespace-pre-wrap leading-7 text-slate-600">
+          {lesson.textLesson}
+        </p>
+      ) : (
+        <p className="text-sm text-slate-500">No lesson text is available.</p>
+      );
+    }
+
+    if (lesson.lessonType === "audio") {
+      return lesson.audioFile ? (
+        <audio
+          controls
+          preload="metadata"
+          className="w-full"
+          aria-label="Audio lesson player"
+        >
+          <source src={lesson.audioFile} />
+          Your browser does not support audio playback.
+        </audio>
+      ) : (
+        <p className="text-sm text-slate-500">No audio file is available.</p>
+      );
+    }
+
+    if (lesson.lessonType === "file") {
+      return lesson.otherFile ? (
+        <a
+          href={lesson.otherFile}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+        >
+          <FaFileDownload aria-hidden="true" />
+          Open lesson resource
+        </a>
+      ) : (
+        <p className="text-sm text-slate-500">No lesson file is available.</p>
+      );
+    }
+
+    return <p className="text-sm text-slate-500">Unsupported lesson type.</p>;
+  };
 
   return (
-    <div className="flex flex-wrap h-[100vh] ">
-      <div className="bg-[#172285] text-white w-[20%] h-full fixed">
-        <div className="text-2xl font-bold p-2 flex flex-wrap ">
-          <h1>Dash</h1>
-          <h1>Board</h1>
-        </div>
-        <div className="mt-10 ">
-          <Link to="/">
-            <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-              <FaHome className="mt-1" />
-              Home
-            </div>
-          </Link>
-          <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-            <FaRegUser className="mt-1" />
-            Profile
-          </div>
-          <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-            <FaBarsProgress className="mt-1" />
-            Progress
-          </div>
-          <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b text-red-600 border-white hover-effect w-[80%]">
-            <RiLogoutCircleLine className="mt-1" />
-            Logout
-          </div>
-        </div>
-      </div>
-      <div className="w-[80%] ml-[20%] p-4">
-        <h2 className="text-2xl font-bold mb-4">Available Lessons</h2>
-        <div className="space-y-4">
-          {lessons.map((lesson) => (
-            <div
-              key={lesson._id}
-              className="p-4 border border-gray-300 rounded"
+    <div className="min-h-screen bg-[#f3f5ef] text-slate-800 lg:pl-64">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#12372a] px-5 py-7 text-white lg:flex">
+        <Link to="/" className="px-3 text-xl font-bold tracking-tight">
+          Marfat-ul-Quran
+        </Link>
+
+        <p className="mt-12 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100/60">
+          Student menu
+        </p>
+
+        <nav className="mt-4 space-y-1" aria-label="Student navigation">
+          {navigation.map(({ label, to, icon: Icon }) => (
+            <Link
+              key={label}
+              to={to}
+              className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-emerald-50/80 transition hover:bg-white/10 hover:text-white"
             >
-              <h3 className="text-xl font-bold">{lesson.lessonType} Lesson</h3>
-              {lesson.lessonType === "text" && <p>{lesson.textLesson}</p>}
-              {lesson.lessonType === "audio" && (
-                <audio controls>
-                  <source src={lesson.audioFile} type="audio/mpeg" />
-                  Your browser does not support the audio element.
-                </audio>
-              )}
-              {lesson.lessonType === "file" && (
-                <a href={lesson.otherFile} download>
-                  Download File
-                </a>
-              )}
-            </div>
+              <Icon className="h-5 w-5" aria-hidden="true" />
+              {label}
+            </Link>
           ))}
+        </nav>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-auto flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-emerald-50/80 transition hover:bg-white/10 hover:text-white"
+        >
+          <RiLogoutCircleLine className="h-5 w-5" aria-hidden="true" />
+          Log out
+        </button>
+      </aside>
+
+      <header className="sticky top-0 z-30 border-b border-emerald-950/10 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between">
+          <Link to="/" className="font-bold text-[#12372a]">
+            Marfat-ul-Quran
+          </Link>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+          >
+            <RiLogoutCircleLine className="h-5 w-5" aria-hidden="true" />
+            Log out
+          </button>
         </div>
-      </div>
+
+        <nav
+          className="mt-3 flex gap-2 overflow-x-auto pb-1"
+          aria-label="Student navigation"
+        >
+          {navigation.map(({ label, to }) => (
+            <Link
+              key={label}
+              to={to}
+              className="shrink-0 rounded-full bg-[#f3f5ef] px-4 py-2 text-sm font-medium text-[#12372a] hover:bg-emerald-100"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-9 lg:px-10">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-800">
+              Student learning
+            </p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#12372a]">
+              Available lessons
+            </h1>
+            <p className="mt-2 text-slate-600">
+              Continue learning with reading, audio, and course resources.
+            </p>
+          </div>
+
+          <Link
+            to="/Dashboard"
+            className="inline-flex items-center rounded-lg border border-emerald-900/15 bg-white px-4 py-2.5 text-sm font-semibold text-[#12372a] transition hover:bg-emerald-50"
+          >
+            Back to dashboard
+          </Link>
+        </div>
+
+        {!loading && !error && lessons.length > 0 && (
+          <p className="mt-6 text-sm font-medium text-slate-600">
+            {lessons.length} {lessons.length === 1 ? "lesson" : "lessons"}
+          </p>
+        )}
+
+        {loading ? (
+          <div
+            className="mt-6 rounded-2xl border border-emerald-950/10 bg-white p-6 text-slate-600"
+            role="status"
+          >
+            Loading lessons…
+          </div>
+        ) : error ? (
+          <div
+            className="mt-6 rounded-2xl border border-red-200 bg-white p-6"
+            role="alert"
+          >
+            <p className="text-red-700">{error}</p>
+            <button
+              type="button"
+              onClick={() => setReload((value) => value + 1)}
+              className="mt-4 rounded-lg bg-[#12372a] px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-900"
+            >
+              Try again
+            </button>
+          </div>
+        ) : lessons.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-emerald-950/10 bg-white p-8 text-center">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+              <FaBookOpen className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <h2 className="mt-4 text-lg font-bold text-[#12372a]">
+              No lessons available yet
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Lessons will appear here when they’re added by a teacher.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-5 xl:grid-cols-2">
+            {lessons.map((lesson, index) => (
+              <article
+                key={lesson._id || index}
+                className="rounded-2xl border border-emerald-950/10 bg-white p-5 shadow-sm sm:p-6"
+              >
+                <div className="mb-5 flex items-start gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                    {lesson.lessonType === "audio" ? (
+                      <FaHeadphones className="h-5 w-5" aria-hidden="true" />
+                    ) : lesson.lessonType === "file" ? (
+                      <FaFileDownload className="h-5 w-5" aria-hidden="true" />
+                    ) : (
+                      <FaBookOpen className="h-5 w-5" aria-hidden="true" />
+                    )}
+                  </span>
+
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                      {lessonTypeLabels[lesson.lessonType] || "Lesson"}
+                    </p>
+                    <h2 className="mt-1 text-lg font-bold text-[#12372a]">
+                      Lesson {index + 1}
+                    </h2>
+                  </div>
+                </div>
+
+                {renderLessonContent(lesson)}
+              </article>
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 };
