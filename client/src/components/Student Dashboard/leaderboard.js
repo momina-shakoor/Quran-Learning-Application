@@ -1,59 +1,171 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
-import { RxCross1 } from "react-icons/rx";
+import { FaArrowLeft, FaTrophy } from "react-icons/fa";
 import { Link } from "react-router-dom";
 
 const Leaderboard = () => {
   const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    let isActive = true;
+
     const fetchLeaderboard = async () => {
+      setLoading(true);
+      setError("");
+
       try {
         const response = await axios.get(
-          "http://localhost:8080/api/users/leaderboard"
+          "http://localhost:8080/api/users/leaderboard",
         );
-        setStudents(response.data);
-      } catch (error) {
-        console.error("Error fetching leaderboard:", error);
+
+        if (isActive) {
+          setStudents(Array.isArray(response.data) ? response.data : []);
+        }
+      } catch {
+        if (isActive) {
+          setError("The leaderboard couldn’t be loaded. Please try again.");
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
 
     fetchLeaderboard();
-  }, []);
+
+    return () => {
+      isActive = false;
+    };
+  }, [reload]);
+
+  const topStudents = students.slice(0, 3);
+  const remainingStudents = students.slice(3);
+
+  const getRankStyle = (index) => {
+    if (index === 0) return "bg-amber-100 text-amber-800";
+    if (index === 1) return "bg-slate-200 text-slate-700";
+    if (index === 2) return "bg-orange-100 text-orange-800";
+    return "bg-emerald-50 text-emerald-800";
+  };
+
+  const StudentRow = ({ student, index }) => {
+    const name =
+      [student.firstName, student.lastName].filter(Boolean).join(" ") ||
+      "Student";
+
+    return (
+      <li className="flex items-center gap-4 rounded-xl border border-emerald-950/10 bg-white p-4">
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${getRankStyle(index)}`}
+        >
+          {index + 1}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold text-[#12372a]">{name}</p>
+          <p className="text-sm text-slate-500">Rank #{index + 1}</p>
+        </div>
+
+        <p className="shrink-0 text-sm font-semibold text-emerald-800">
+          {Number(student.score || 0).toLocaleString()} XP
+        </p>
+      </li>
+    );
+  };
 
   return (
-    <>
-      <div className="fixed inset-0 z-50 flex justify-center items-center bg-opacity-50 bg-black">
-        <div className="lg:w-[40%] p-6 mx-2 bg-white rounded-lg shadow-lg">
-          <div className="flex flex-wrap justify-between items-center w-full gap-2 mb-4">
-            <div className="flex gap-2">
-              <h1 className="text-2xl font-bold">Leaderboard</h1>
-              <Link to="/Dashboard">
-                <RxCross1 className="mt-2" />
-              </Link>
+    <main className="min-h-screen bg-[#f3f5ef] px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-5xl">
+        <Link
+          to="/Dashboard"
+          className="inline-flex items-center gap-2 rounded-lg text-sm font-semibold text-emerald-800 hover:text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+        >
+          <FaArrowLeft aria-hidden="true" />
+          Back to dashboard
+        </Link>
+
+        <header className="mt-8 rounded-3xl bg-gradient-to-br from-[#12372a] to-emerald-800 p-6 text-white sm:p-9">
+          <div className="flex items-center gap-4">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-300 text-[#12372a]">
+              <FaTrophy className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-amber-300">
+                Student progress
+              </p>
+              <h1 className="mt-1 text-3xl font-bold sm:text-4xl">
+                Leaderboard
+              </h1>
             </div>
           </div>
-          <div className="space-y-4">
-            {students.map((student, index) => (
-              <div
-                key={student.id}
-                className="flex items-center p-4 bg-gray-100 rounded-lg shadow-md"
+          <p className="mt-5 max-w-2xl leading-7 text-emerald-50/80">
+            See how learners are progressing and celebrate their achievements.
+          </p>
+        </header>
+
+        <section className="mt-8" aria-label="Student rankings">
+          {loading ? (
+            <div
+              className="rounded-2xl border border-emerald-950/10 bg-white p-6 text-slate-600"
+              role="status"
+            >
+              Loading leaderboard…
+            </div>
+          ) : error ? (
+            <div
+              className="rounded-2xl border border-red-200 bg-white p-6"
+              role="alert"
+            >
+              <p className="text-red-700">{error}</p>
+              <button
+                type="button"
+                onClick={() => setReload((value) => value + 1)}
+                className="mt-4 rounded-lg bg-[#12372a] px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-900"
               >
-                <div className="flex-shrink-0 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-lg font-bold">
-                  {index + 1}
-                </div>
-                <div className="ml-4">
-                  <h2 className="text-xl font-semibold">
-                    {student.firstName} {student.lastName}
-                  </h2>
-                  <p className="text-gray-600">XP: {student.score}</p>
-                </div>
+                Try again
+              </button>
+            </div>
+          ) : students.length === 0 ? (
+            <div className="rounded-2xl border border-emerald-950/10 bg-white p-6 text-slate-600">
+              No student scores are available yet.
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {topStudents.map((student, index) => (
+                  <StudentRow
+                    key={student._id || student.id || index}
+                    student={student}
+                    index={index}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+
+              {remainingStudents.length > 0 && (
+                <div className="mt-8">
+                  <h2 className="mb-4 text-lg font-bold text-[#12372a]">
+                    More learners
+                  </h2>
+                  <ol className="space-y-3">
+                    {remainingStudents.map((student, index) => (
+                      <StudentRow
+                        key={student._id || student.id || index + 3}
+                        student={student}
+                        index={index + 3}
+                      />
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </>
+          )}
+        </section>
       </div>
-    </>
+    </main>
   );
 };
 

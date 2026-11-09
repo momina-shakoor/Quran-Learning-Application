@@ -2,13 +2,12 @@ import React, { useEffect, useState } from "react";
 import { PiMosqueFill } from "react-icons/pi";
 import {
   FaQuran,
-  FaQuestion,
-  FaBookReader,
   FaRegUserCircle,
   FaHome,
   FaRegUser,
+  FaBookOpen,
+  FaQuestion,
 } from "react-icons/fa";
-
 import {
   MdFeedback,
   MdQuiz,
@@ -22,192 +21,367 @@ import { useDispatch, useSelector } from "react-redux";
 import { logoutUser } from "../redux/action";
 import axios from "axios";
 
+const navigation = [
+  { label: "Home", to: "/", icon: FaHome },
+  { label: "Profile", to: "/studentprofile", icon: FaRegUser },
+  { label: "Leaderboard", to: "/leaderboard", icon: FaBarsProgress },
+];
+
+const quickActions = [
+  {
+    label: "Quizzes",
+    description: "Practice what you have learned",
+    to: "/studentquiz",
+    icon: MdQuiz,
+  },
+  {
+    label: "Quran streaks",
+    description: "Keep up your reading routine",
+    to: "/QuranStreaks",
+    icon: FaQuran,
+  },
+  {
+    label: "Namaz streaks",
+    description: "Track your prayer routine",
+    to: "/NamazStreaks",
+    icon: PiMosqueFill,
+  },
+  {
+    label: "Teacher feedback",
+    description: "Review your feedback",
+    to: "/studentfeedback",
+    icon: MdFeedback,
+  },
+];
+
 const Dashboard = () => {
-  const [Courses, setCoures] = useState();
+  const [courses, setCourses] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [courseError, setCourseError] = useState("");
+
   const dispatch = useDispatch();
-  const user = useSelector((state) => state.custom.user);
   const navigate = useNavigate();
+  const user = useSelector((state) => state.custom.user);
 
   useEffect(() => {
-    // Redirect if user is not a student
     if (user?.role !== "student") {
-      navigate("/login");
+      navigate("/login", { replace: true });
+      return;
     }
-  }, [user, navigate]);
 
-  const fecthcourses = async () => {
-    try {
-      const response = await axios.get(
-        "http://localhost:8080/api/users/allcourses"
-      );
-      setCoures(response.data.allcourses);
-    } catch (error) {
-      console.error("Failed to fetch courses", error);
-    }
-  };
+    let isActive = true;
 
-  useEffect(() => {
-    fecthcourses();
-  }, []);
+    const fetchCourses = async () => {
+      setLoadingCourses(true);
+      setCourseError("");
+
+      try {
+        const response = await axios.get(
+          "http://localhost:8080/api/users/allcourses",
+        );
+
+        if (isActive) {
+          setCourses(response.data.allcourses || []);
+        }
+      } catch {
+        if (isActive) {
+          setCourseError("Courses couldn’t be loaded. Please try again.");
+        }
+      } finally {
+        if (isActive) {
+          setLoadingCourses(false);
+        }
+      }
+    };
+
+    fetchCourses();
+
+    return () => {
+      isActive = false;
+    };
+  }, [user?.role, navigate]);
 
   const handleLogout = () => {
     dispatch(logoutUser());
     navigate("/");
   };
 
-  const capitalizeFirstLetterOfEachWord = (string) => {
-    if (!string) return "";
-    return string
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
+  const firstName = user?.firstName?.trim() || "Student";
 
   return (
-    <div className="flex flex-wrap h-[100vh] ">
-      <div className="bg-[#7194f3] text-white w-[20%] h-full fixed">
-        <div className="text-2xl font-bold p-2 flex flex-wrap">
-          <h1>Dash</h1>
-          <h1>Board</h1>
-        </div>
-        <div className="mt-10">
-          <Link to="/">
-            <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-              <FaHome className="mt-1" />
-              Home
-            </div>
-          </Link>
-          <Link to="/studentprofile">
-            <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-              <FaRegUser className="mt-1" />
-              Profile
-            </div>
-          </Link>
-          <Link to="/leaderboard">
-            <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-              <FaBarsProgress className="mt-1" />
-              LeaderBoard
-            </div>
+    <div className="min-h-screen bg-[#f3f5ef] text-slate-800 lg:pl-64">
+      {/* Desktop sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#12372a] px-5 py-7 text-white lg:flex">
+        <Link to="/" className="px-3 text-xl font-bold tracking-tight">
+          Marfat-ul-Quran
+        </Link>
+
+        <p className="mt-12 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100/60">
+          Student menu
+        </p>
+
+        <nav className="mt-4 space-y-1" aria-label="Student navigation">
+          {navigation.map(({ label, to, icon: Icon }) => (
+            <Link
+              key={label}
+              to={to}
+              className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-emerald-50/80 transition hover:bg-white/10 hover:text-white"
+            >
+              <Icon className="h-5 w-5" aria-hidden="true" />
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-auto flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-emerald-50/80 transition hover:bg-white/10 hover:text-white"
+        >
+          <RiLogoutCircleLine className="h-5 w-5" aria-hidden="true" />
+          Log out
+        </button>
+      </aside>
+
+      {/* Mobile header */}
+      <header className="sticky top-0 z-30 border-b border-emerald-950/10 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between">
+          <Link to="/" className="font-bold tracking-tight text-[#12372a]">
+            Marfat-ul-Quran
           </Link>
           <button
+            type="button"
             onClick={handleLogout}
-            className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b text-red-600 border-white hover-effect w-[80%]"
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
           >
-            <RiLogoutCircleLine className="mt-1" />
-            Logout
+            <RiLogoutCircleLine className="h-5 w-5" aria-hidden="true" />
+            Log out
           </button>
         </div>
-      </div>
-      <div className="w-[80%] p-3 ml-[20%]">
-        <div className="lg:mr-[5%] flex flex-wrap justify-end">
-          <div className="bg-slate-300 rounded-xl lg:ml-[70%] text-lg text-center flex flex-wrap justify-center gap-2 py-2">
-            <h1>{user?.firstName}</h1>
-            <FaRegUserCircle className="mt-1" />
-          </div>
-        </div>
-        <div className="lg:h-40 lg:w-[90%] sm:w-full m-2 p-10 bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg text-white">
-          <h1 className="text-4xl mb-1">Welcome Back, {user?.firstName}!</h1>
-          <h2 className="text-lg mb-1">
-            You have completed 40% of your course!
-          </h2>
-          <h3>Keep up the good work!</h3>
-        </div>
-        <div className="lg:gap-1 lg:justify-start lg:flex lg:flex-wrap sm:block md:flex md:flex-wrap md:justify-center md:gap-3 p-2">
-          <Link to="/studentquiz">
-            <div className="rounded-lg lg:mr-5 my-1 lg:w-[10rem] lg:h-[6rem] p-2 bg-green-400 text-white text-xl hover:scale-105 transition-transform duration-300">
-              <MdQuiz className="text-3xl" />
-              Quiz
-            </div>
-          </Link>
-          <Link to="/NamazStreaks">
-            <div className="rounded-lg lg:mr-5 my-1 lg:w-[10rem] lg:h-[6rem] p-2 bg-pink-400 text-white text-xl hover:scale-105 transition-transform duration-300">
-              <PiMosqueFill className="text-3xl" />
-              Namaz Streaks
-            </div>
-          </Link>
-          <Link to="/QuranStreaks">
-            <div className="rounded-lg lg:mr-5 my-1 lg:w-[10rem] lg:h-[6rem] p-2 bg-yellow-400 text-white text-xl hover:scale-105 transition-transform duration-300">
-              <FaQuran className="text-3xl" />
-              Quran Streaks
-            </div>
-          </Link>
 
-          <Link to="/studentfeedback">
-            <div className="rounded-lg lg:mr-5 my-1 lg:w-[10rem] lg:h-[6rem] p-2 bg-teal-400 text-white text-xl hover:scale-105 transition-transform duration-300">
-              <MdFeedback className="text-3xl" />
-              Teacher's Feedback
-            </div>
+        <nav
+          className="mt-3 flex gap-2 overflow-x-auto pb-1"
+          aria-label="Student navigation"
+        >
+          {navigation.map(({ label, to }) => (
+            <Link
+              key={label}
+              to={to}
+              className="shrink-0 rounded-full bg-[#f3f5ef] px-4 py-2 text-sm font-medium text-[#12372a] hover:bg-emerald-100"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+        {/* Greeting */}
+        <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-emerald-800">
+              Student dashboard
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#12372a] sm:text-3xl">
+              Welcome back, {firstName}
+            </h1>
+            <p className="mt-2 text-sm text-slate-600 sm:text-base">
+              Pick up where you left off or choose what to work on next.
+            </p>
+          </div>
+
+          <Link
+            to="/studentprofile"
+            className="hidden items-center gap-3 rounded-xl border border-emerald-950/10 bg-white px-4 py-3 shadow-sm sm:flex"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-800">
+              <FaRegUserCircle className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <span className="text-sm font-semibold text-[#12372a]">
+              {firstName}
+            </span>
           </Link>
         </div>
-        <div className="lg:flex lg:flex-wrap md:flex md:flex-wrap gap-3 lg:h-[30vh] md:h-[30vh] sm:w-full mb-4">
-          <div className="w-full lg:w-[69%]">
-            <div className="bg-indigo-400 rounded-lg text-white lg:flex lg:flex-wrap md:flex md:flex-wrap gap-3 lg:h-[100%] md:h-[100%] p-3">
-              <div className="sm:w-full bg-teal-600 rounded-lg p-1 lg:w-[70%] md:w-[60%]">
-                <h1 className="text-2xl font-medium">My Courses</h1>
-                <div className="flex flex-wrap gap-3">
-                  {Courses?.map((item) => (
-                    <div key={item._id}>
-                      <h1>
-                        {capitalizeFirstLetterOfEachWord(item.courseName)}
-                      </h1>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap justify-center text-xl text-center gap-1 p-2">
-                  <div className="px-2 border-r-2 border-white">
-                    <h2>2</h2>
-                    <h3 className="text-sm">Courses</h3>
-                  </div>
-                  <div className="px-2 border-r-2 border-white">
-                    <h2>2</h2>
-                    <h3 className="text-sm">Completed</h3>
-                  </div>
-                  <div className="px-2">
-                    <h2>1</h2>
-                    <h3 className="text-sm">Points</h3>
-                  </div>
-                </div>
-              </div>
-              <div className="lg:w-[28%] md:w-[28%] p-2">
-                <Link
-                  to="/studentlecture"
-                  className="flex flex-wrap gap-4 rounded-lg bg-pink-600 hover:scale-105 transition-transform duration-300 p-2 mb-3"
+
+        {/* Primary action */}
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#12372a] to-emerald-800 p-6 text-white sm:p-9">
+          <div
+            className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full border-[36px] border-white/5"
+            aria-hidden="true"
+          />
+          <div className="relative max-w-2xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-amber-300">
+              Your learning space
+            </p>
+            <h2 className="mt-3 text-2xl font-bold sm:text-3xl">
+              Ready for your next lesson?
+            </h2>
+            <p className="mt-3 max-w-xl leading-7 text-emerald-50/80">
+              Continue exploring lessons, practice activities, and Quran
+              reading.
+            </p>
+            <Link
+              to="/studentlecture"
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-300 px-5 py-3 text-sm font-bold text-[#183428] transition hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-emerald-900"
+            >
+              <MdOutlinePlayLesson className="h-5 w-5" aria-hidden="true" />
+              Go to lessons
+            </Link>
+          </div>
+        </section>
+
+        {/* Quick links */}
+        <section className="mt-9" aria-labelledby="quick-actions-heading">
+          <div className="mb-4">
+            <h2
+              id="quick-actions-heading"
+              className="text-xl font-bold text-[#12372a]"
+            >
+              Quick access
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Jump straight to a learning activity.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {quickActions.map(({ label, description, to, icon: Icon }) => (
+              <Link
+                key={label}
+                to={to}
+                className="group rounded-2xl border border-emerald-950/10 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-700"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 transition group-hover:bg-[#12372a] group-hover:text-white">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h3 className="mt-4 font-semibold text-[#12372a]">{label}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  {description}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* Courses and more actions */}
+        <div className="mt-9 grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.8fr)]">
+          <section
+            className="rounded-2xl border border-emerald-950/10 bg-white p-5 shadow-sm sm:p-7"
+            aria-labelledby="courses-heading"
+          >
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2
+                  id="courses-heading"
+                  className="text-xl font-bold text-[#12372a]"
                 >
-                  <h1>Start Lesson</h1>
-                  <MdOutlinePlayLesson className="mt-1" />
-                </Link>
-                <div className="flex flex-wrap gap-4 rounded-lg bg-yellow-600 hover:scale-105 transition-transform duration-300 p-2 mb-3">
-                  <h1>Course Outline</h1>
-                  <FaBookReader className="mt-1" />
-                </div>
-                <Link to="/studentqna">
-                  <div className="flex flex-wrap gap-4 rounded-lg bg-green-600 hover:scale-105 transition-transform duration-300 p-2">
-                    <h1>Ask Question</h1>
-                    <FaQuestion className="mt-1" />
-                  </div>
-                </Link>
-              </div>
-            </div>
-          </div>
-          <div className="py-2 lg:w-[20%] w-full text-white text-lg">
-            <Link to="/studentassignment">
-              <div className="h-[49%] mb-1 rounded-lg bg-red-400 p-2 flex flex-wrap sm:gap-2 lg:gap-1 md:gap-0 hover:scale-105 transition-transform duration-300">
-                <MdAssignment className="mt-1" />
-                <h5>Assignments</h5>
-                <h2 className="text-red-700 text-md hover:underline">
-                  1 Assignment pending
+                  Courses
                 </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Browse courses available for learning.
+                </p>
               </div>
-            </Link>
-            <Link to="/quran">
-              <div className="h-[49%] mb-1 rounded-lg bg-lime-400 text-2xl p-2 flex flex-wrap justify-center gap-2 text-center items-center hover:scale-105 transition-transform duration-300">
-                <FaQuran className="mt-1" />
-                <h5>Read Quran</h5>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900">
+                {courses.length} {courses.length === 1 ? "course" : "courses"}
+              </span>
+            </div>
+
+            {loadingCourses ? (
+              <p className="mt-6 rounded-xl bg-[#f3f5ef] p-4 text-sm text-slate-600">
+                Loading courses…
+              </p>
+            ) : courseError ? (
+              <p
+                role="alert"
+                className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700"
+              >
+                {courseError}
+              </p>
+            ) : courses.length === 0 ? (
+              <div className="mt-6 rounded-xl bg-[#f3f5ef] p-5">
+                <p className="font-medium text-[#12372a]">
+                  No courses are available yet.
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Check back later for new learning content.
+                </p>
               </div>
+            ) : (
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {courses.map((course) => (
+                  <article
+                    key={course._id}
+                    className="rounded-xl border border-emerald-950/10 p-4 transition hover:border-emerald-800/30 hover:bg-[#fbfaf5]"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
+                        <FaBookOpen className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <div>
+                        <h3 className="font-semibold text-[#12372a]">
+                          {course.courseName || "Untitled course"}
+                        </h3>
+                        {course.courseDescription && (
+                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                            {course.courseDescription}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-4" aria-label="More learning activities">
+            <Link
+              to="/studentassignment"
+              className="flex items-center justify-between gap-4 rounded-2xl bg-amber-100 p-5 text-[#12372a] transition hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-600"
+            >
+              <span>
+                <span className="block font-bold">Assignments</span>
+                <span className="mt-1 block text-sm text-emerald-950/70">
+                  View and submit your work
+                </span>
+              </span>
+              <MdAssignment className="h-7 w-7 shrink-0" aria-hidden="true" />
             </Link>
-          </div>
+
+            <Link
+              to="/quran"
+              className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 text-[#12372a] shadow-sm ring-1 ring-emerald-950/10 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+            >
+              <span>
+                <span className="block font-bold">Read Quran</span>
+                <span className="mt-1 block text-sm text-slate-600">
+                  Continue with Quran reading
+                </span>
+              </span>
+              <FaQuran
+                className="h-7 w-7 shrink-0 text-emerald-800"
+                aria-hidden="true"
+              />
+            </Link>
+
+            <Link
+              to="/studentqna"
+              className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 text-[#12372a] shadow-sm ring-1 ring-emerald-950/10 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+            >
+              <span>
+                <span className="block font-bold">Ask a question</span>
+                <span className="mt-1 block text-sm text-slate-600">
+                  Get help with your learning
+                </span>
+              </span>
+              <FaQuestion
+                className="h-7 w-7 shrink-0 text-emerald-800"
+                aria-hidden="true"
+              />
+            </Link>
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

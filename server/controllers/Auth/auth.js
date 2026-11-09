@@ -54,32 +54,55 @@ exports.AuthSignup = async (req, res) => {
 
 exports.AuthLogin = async (req, res) => {
   const { email, password } = req.body;
-  console.log(req.body);
+
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: "Email and password are required",
+    });
+  }
+
   try {
     const user = await AuthModel.findOne({ email });
+
+    // Use the same response for an unknown email and a wrong password.
     if (!user) {
-      return res.status(404).json({
+      return res.status(401).json({
         success: false,
-        msg: "user not found",
-      });
-    }
-    console.log(user);
-    const matchpassowrd = bcrypt.compare(password, user.password);
-    console.log("passowrd matched", matchpassowrd);
-    if (!matchpassowrd) {
-      return res.status(409).json({
-        success: false,
-        msg: "Password not matched",
+        message: "Invalid email or password",
       });
     }
 
-    res.status(200).json({
+    const passwordMatches = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // Return only the fields the client needs. Never send the password hash.
+    const safeUser = {
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+    };
+
+    return res.status(200).json({
       success: true,
-      message: "User loged in Successfully",
-      user,
+      message: "User logged in successfully",
+      user: safeUser,
     });
   } catch (error) {
-    res.status(500).send({ message: error.message });
+    console.error("Login error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
 

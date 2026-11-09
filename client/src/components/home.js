@@ -10,14 +10,24 @@ import NavBar from "./navbar";
 
 export default function Home() {
   return (
-    <div>
+    <div id="home">
       <NavBar />
       <HeroSection />
       <Example />
-      <MultipleItems />
-      <Services />
-      <Information />
-      <ContactForm />
+
+      <section id="courses" className="scroll-mt-20">
+        <MultipleItems />
+      </section>
+
+      <section id="learning" className="scroll-mt-20">
+        <Services />
+        <Information />
+      </section>
+
+      <section id="contact" className="scroll-mt-20">
+        <ContactForm />
+      </section>
+
       <Footer />
     </div>
   );

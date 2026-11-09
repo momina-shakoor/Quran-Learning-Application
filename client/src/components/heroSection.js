@@ -1,43 +1,69 @@
-import React, { useEffect } from "react";
-import AOS from "aos";
-import "aos/dist/aos.css";
+import React from "react";
 import { Link } from "react-router-dom";
 
 const HeroSection = () => {
-  useEffect(() => {
-    AOS.init({
-      duration: 1000,
-      easing: "ease-in-out",
-      once: true,
-    });
-  }, []);
+  const backgroundImage = `url("${process.env.PUBLIC_URL}/images/bg-img.jpg")`;
 
   return (
-    <div data-aos="fade-up" data-aos-duration="1000">
+    <section
+      className="relative isolate flex min-h-[560px] items-center overflow-hidden bg-[#12372a] text-white sm:min-h-[620px] lg:min-h-[calc(100vh-5rem)]"
+      style={{ backgroundImage }}
+    >
+      {/* Background image and overlays */}
       <div
-        className="relative bg-cover bg-center h-[60vh] flex items-center text-white"
-        style={{
-          backgroundImage: `url(${process.env.PUBLIC_URL}/images/bg-img.jpg)`,
-        }}
-      >
-        <div className="absolute bottom-0 left-0 right-0 text-center p-8">
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 animate__animated animate__fadeIn animate__delay-1s transition duration-1000">
-            Marfat-ul-Quran
+        className="absolute inset-0 -z-10 bg-cover bg-center"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute inset-0 -z-10 bg-gradient-to-r from-[#10291f]/95 via-[#10291f]/75 to-[#10291f]/30"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute inset-0 -z-10 bg-gradient-to-t from-[#10291f]/45 via-transparent to-transparent"
+        aria-hidden="true"
+      />
+
+      <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:px-12">
+        <div className="max-w-3xl">
+          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100 backdrop-blur-sm sm:text-sm">
+            A thoughtful path to Quran learning
+          </p>
+
+          <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+            Build a lasting connection with the{" "}
+            <span className="text-amber-300">Quran</span>
           </h1>
-          <p className="text-lg md:text-xl mb-4 animate__animated animate__fadeIn animate__delay-2s transition duration-1000">
-            Your Gateway towards eternal success
+
+          <p className="mt-6 max-w-2xl text-base leading-7 text-white/85 sm:text-lg sm:leading-8">
+            Learn to read and understand the Quran through guided lessons,
+            courses, and practice at your own pace.
           </p>
-          <p className="text-sm md:text-base mb-6 animate__animated animate__fadeIn animate__delay-3s transition duration-1000">
-            Learn to Read and understand Quran in an innovative way
+
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link
+              to="/registration"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-amber-300 px-6 py-3 text-sm font-bold text-[#183428] shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-[#12372a] sm:text-base"
+            >
+              Start learning
+              <span className="ml-2" aria-hidden="true">
+                →
+              </span>
+            </Link>
+
+            <a
+              href="/#courses"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/35 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#12372a] sm:text-base"
+            >
+              Explore courses
+            </a>
+          </div>
+
+          <p className="mt-6 text-sm text-white/70">
+            Learn step by step, wherever you are.
           </p>
-          <Link to="/registration">
-            <button className="bg-blue-500 text-white px-8 py-3 rounded hover:bg-blue-700 transition duration-300 animate__animated animate__fadeIn animate__delay-4s">
-              Register Now
-            </button>
-          </Link>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

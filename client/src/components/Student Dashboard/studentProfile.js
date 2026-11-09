@@ -1,254 +1,367 @@
-import React, { useState, useEffect } from "react";
-import { FaHome } from "react-icons/fa";
-import { Link, useNavigate } from "react-router-dom";
-import { RiLogoutCircleLine } from "react-icons/ri";
-import { FaRegUser } from "react-icons/fa";
+import React, { useEffect, useState } from "react";
+import { FaHome, FaRegUser } from "react-icons/fa";
 import { FaBarsProgress } from "react-icons/fa6";
-import {  useDispatch, useSelector } from "react-redux";
-import {loginUser} from '../redux/action'
+import { RiLogoutCircleLine } from "react-icons/ri";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { logoutUser, loginUser } from "../redux/action";
 import axios from "axios";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "react-toastify";
+
+const getProfileData = (user = {}) => ({
+  firstName: user.firstName || "",
+  lastName: user.lastName || "",
+  dateOfBirth: user.dateOfBirth?.slice(0, 10) || "",
+  email: user.email || "",
+  phone: user.phone || "",
+  course: user.course || "",
+  _id: user._id || "",
+});
+
+const profileFields = [
+  { name: "firstName", label: "First name", type: "text" },
+  { name: "lastName", label: "Last name", type: "text" },
+  { name: "dateOfBirth", label: "Date of birth", type: "date" },
+  { name: "email", label: "Email address", type: "email" },
+  { name: "phone", label: "Phone number", type: "tel" },
+  { name: "course", label: "Registered course", type: "text" },
+];
+
+const navItems = [
+  { label: "Dashboard", to: "/Dashboard", icon: FaHome },
+  { label: "Profile", to: "/studentprofile", icon: FaRegUser },
+  { label: "Leaderboard", to: "/leaderboard", icon: FaBarsProgress },
+];
+
 const StudentProfile = () => {
-  const dispatch=useDispatch();
-  const user = useSelector((state) => state.custom.user);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [userData, setUserData] = useState({
-    firstName: "",
-    lastName: "",
-    dateOfBirth: "",
-    email: "",
-    phone: "",
-    course: "",
-    _id:user._id
-  });
+  const user = useSelector((state) => state.custom.user);
+
+  const [userData, setUserData] = useState(() => getProfileData(user));
   const [editMode, setEditMode] = useState(false);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState("");
 
   useEffect(() => {
-  setUserData(user);
-  }, []);
+    if (user?.role !== "student") {
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    setUserData(getProfileData(user));
+  }, [user, navigate]);
 
   const handleLogout = () => {
-    console.log("Logging out...");
-    localStorage.removeItem("logeduser");
-    console.log("User data removed from localStorage.");
+    dispatch(logoutUser());
     navigate("/");
   };
 
-  const handleEdit = async() => {
-    try {
-      const response=await axios.post("http://localhost:8080/api/users/updatepersonaldata",userData);
-      console.log(response);
-      const userfound=response.data.user;
-      dispatch(loginUser(userfound))
-      toast.success(response.data.message);
-    } catch (error) {
-      console.log(error);
-      toast.success(error.response.data.message);
-    }
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setUserData((current) => ({
+      ...current,
+      [name]: value,
+    }));
+
+    setErrors((current) => ({
+      ...current,
+      [name]: "",
+    }));
+
+    setServerError("");
   };
 
-  const handleSave = async () => {
-  
- 
-
-    // Make a POST request to your backend API endpoint
- 
-     
-    
-     
-
+  const handleCancel = () => {
+    setUserData(getProfileData(user));
+    setErrors({});
+    setServerError("");
     setEditMode(false);
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setUserData((prevUserData) => ({
-      ...prevUserData,
-      [name]: value,
-    }));
+  const validateProfile = () => {
+    const nextErrors = {};
+    const phoneDigits = userData.phone.replace(/\D/g, "");
+
+    if (userData.firstName.trim().length < 2) {
+      nextErrors.firstName = "Enter at least 2 characters.";
+    }
+
+    if (userData.lastName.trim().length < 2) {
+      nextErrors.lastName = "Enter at least 2 characters.";
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userData.email.trim())) {
+      nextErrors.email = "Enter a valid email address.";
+    }
+
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      nextErrors.phone = "Enter a phone number with 7 to 15 digits.";
+    }
+
+    if (
+      userData.dateOfBirth &&
+      userData.dateOfBirth > new Date().toISOString().slice(0, 10)
+    ) {
+      nextErrors.dateOfBirth = "Date of birth can’t be in the future.";
+    }
+
+    return nextErrors;
   };
 
+  const handleSave = async (event) => {
+    event.preventDefault();
+
+    const validationErrors = validateProfile();
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      return;
+    }
+
+    setSaving(true);
+    setServerError("");
+
+    const updatedProfile = {
+      ...userData,
+      firstName: userData.firstName.trim(),
+      lastName: userData.lastName.trim(),
+      email: userData.email.trim().toLowerCase(),
+      phone: userData.phone.trim(),
+    };
+
+    try {
+      const response = await axios.post(
+        "http://localhost:8080/api/users/updatepersonaldata",
+        updatedProfile,
+      );
+
+      const updatedUser = response.data.user || updatedProfile;
+
+      // Keep only profile fields in Redux/local storage; don't store a returned password hash.
+      dispatch(
+        loginUser({
+          ...user,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          dateOfBirth: updatedUser.dateOfBirth,
+          email: updatedUser.email,
+          phone: updatedUser.phone,
+          course: updatedUser.course,
+        }),
+      );
+
+      setUserData(getProfileData(updatedUser));
+      setEditMode(false);
+      toast.success(response.data.message || "Profile updated successfully.");
+    } catch (requestError) {
+      const message =
+        requestError.response?.data?.message ||
+        "Could not update your profile. Please try again.";
+
+      setServerError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const initials = `${userData.firstName?.[0] || "S"}${
+    userData.lastName?.[0] || ""
+  }`.toUpperCase();
+
   return (
-    <>
-  
-    
-   
-    <div className="flex flex-wrap h-[100vh]">
-      <div className="bg-[#7194f3] text-white w-[20%] h-full fixed">
-        <div className="text-2xl font-bold p-2 flex flex-wrap">
-          <h1>Dash</h1>
-          <h1>Board</h1>
-        </div>
-        <div className="mt-10">
-          <Link to="/Dashboard">
-            <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-              <FaHome className="mt-1" />
-              Home
-            </div>
+    <div className="min-h-screen bg-[#f3f5ef] text-slate-800 lg:pl-64">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#12372a] px-5 py-7 text-white lg:flex">
+        <Link to="/" className="px-3 text-xl font-bold tracking-tight">
+          Marfat-ul-Quran
+        </Link>
+
+        <p className="mt-12 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100/60">
+          Student menu
+        </p>
+
+        <nav className="mt-4 space-y-1" aria-label="Student navigation">
+          {navItems.map(({ label, to, icon: Icon }) => (
+            <Link
+              key={label}
+              to={to}
+              className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                label === "Profile"
+                  ? "bg-white/10 text-white"
+                  : "text-emerald-50/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <Icon className="h-5 w-5" aria-hidden="true" />
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-auto flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-emerald-50/80 transition hover:bg-white/10 hover:text-white"
+        >
+          <RiLogoutCircleLine className="h-5 w-5" aria-hidden="true" />
+          Log out
+        </button>
+      </aside>
+
+      <header className="sticky top-0 z-30 border-b border-emerald-950/10 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between">
+          <Link to="/" className="font-bold text-[#12372a]">
+            Marfat-ul-Quran
           </Link>
-          <Link to="/studentprofile">
-            <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-              <FaRegUser className="mt-1" />
-              Profile
-            </div>
-          </Link>
-          <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-            <FaBarsProgress className="mt-1" />
-            Progress
-          </div>
           <button
+            type="button"
             onClick={handleLogout}
-            className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b text-red-600 border-white hover-effect w-[80%]"
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
           >
-            <RiLogoutCircleLine className="mt-1" />
-            Logout
+            <RiLogoutCircleLine className="h-5 w-5" aria-hidden="true" />
+            Log out
           </button>
         </div>
-      </div>
-      <div className="w-[80%] p-3 ml-[20%] border border-gray-300 rounded-lg shadow-lg">
-        <div className="p-4">
-          <h2 className="text-2xl font-bold mb-4">Student Profile</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-gray-800 font-semibold mb-1">
-                First Name
-              </label>
-              <input
-                type="text"
-                name="firstName"
-                value={userData.firstName}
-                onChange={handleChange}
-                className="border border-gray-300 p-2 w-full rounded-md focus:outline-none focus:border-blue-500"
-               
-              />
+        <nav
+          className="mt-3 flex gap-2 overflow-x-auto pb-1"
+          aria-label="Student navigation"
+        >
+          {navItems.map(({ label, to }) => (
+            <Link
+              key={label}
+              to={to}
+              className="shrink-0 rounded-full bg-[#f3f5ef] px-4 py-2 text-sm font-medium text-[#12372a] hover:bg-emerald-100"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+      </header>
+
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="mb-7">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-800">
+            Account
+          </p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#12372a]">
+            Student profile
+          </h1>
+          <p className="mt-2 text-slate-600">
+            View and manage your personal information.
+          </p>
+        </div>
+
+        <section className="overflow-hidden rounded-3xl border border-emerald-950/10 bg-white shadow-sm">
+          <div className="flex flex-col gap-5 border-b border-emerald-950/10 bg-[#fbfaf5] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#12372a] text-lg font-bold text-white">
+                {initials}
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-[#12372a]">
+                  {[userData.firstName, userData.lastName]
+                    .filter(Boolean)
+                    .join(" ") || "Student"}
+                </h2>
+                <p className="text-sm text-slate-600">{userData.email}</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-gray-800 font-semibold mb-1">
-                Last Name
-              </label>
-              <input
-                type="text"
-                name="lastName"
-                value={userData.lastName}
-                onChange={handleChange}
-                className="border border-gray-300 p-2 w-full rounded-md focus:outline-none focus:border-blue-500"
-               
-              />
-            </div>
-            <div>
-              <label className="block text-gray-800 font-semibold mb-1">
-                Date of Birth
-              </label>
-              <input
-                type="date"
-                name="dateOfBirth"
-                value={userData.dateOfBirth}
-                onChange={handleChange}
-                className="border border-gray-300 p-2 w-full rounded-md focus:outline-none focus:border-blue-500"
-              
-              />
-            </div>
-            <div>
-              <label className="block text-gray-800 font-semibold mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={userData.email}
-                onChange={handleChange}
-                className="border border-gray-300 p-2 w-full rounded-md focus:outline-none focus:border-blue-500"
-                
-              />
-            </div>
-            <div>
-              <label className="block text-gray-800 font-semibold mb-1">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={userData.phone}
-                onChange={handleChange}
-                className="border border-gray-300 p-2 w-full rounded-md focus:outline-none focus:border-blue-500"
-               
-              />
-            </div>
-            <div>
-              <label className="block text-gray-800 font-semibold mb-1">
-                Registered Course
-              </label>
-              <input
-                type="text"
-                name="course"
-                value={userData.course}
-                onChange={handleChange}
-                className="border border-gray-300 p-2 w-full rounded-md focus:outline-none focus:border-blue-500"
-                
-              />
-            </div>
-            {editMode && (
-              <>
-                <div>
-                  <label className="block text-gray-800 font-semibold mb-1">
-                    New Password
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border border-gray-300 p-2 w-full rounded-md focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-800 font-semibold mb-1">
-                    Confirm Password
-                  </label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="border border-gray-300 p-2 w-full rounded-md focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </>
+
+            {!editMode && (
+              <button
+                type="button"
+                onClick={() => setEditMode(true)}
+                className="rounded-lg bg-[#12372a] px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+              >
+                Edit profile
+              </button>
             )}
           </div>
-          <div className="flex mt-6">
-            {!editMode ? (
-              <button
-                onClick={handleEdit}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+
+          <form onSubmit={handleSave} className="p-5 sm:p-7">
+            <div className="grid gap-5 sm:grid-cols-2">
+              {profileFields.map(({ name, label, type }) => (
+                <div key={name}>
+                  <label
+                    htmlFor={name}
+                    className="mb-2 block text-sm font-semibold text-slate-700"
+                  >
+                    {label}
+                  </label>
+                  <input
+                    id={name}
+                    name={name}
+                    type={type}
+                    value={userData[name] || ""}
+                    onChange={handleChange}
+                    readOnly={!editMode}
+                    autoComplete={
+                      name === "firstName"
+                        ? "given-name"
+                        : name === "lastName"
+                          ? "family-name"
+                          : name === "email"
+                            ? "email"
+                            : name === "phone"
+                              ? "tel"
+                              : undefined
+                    }
+                    className={`w-full rounded-lg border px-4 py-3 outline-none transition ${
+                      editMode
+                        ? "border-slate-300 bg-white text-slate-900 focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/10"
+                        : "border-slate-200 bg-slate-50 text-slate-600"
+                    }`}
+                    aria-invalid={Boolean(errors[name])}
+                    aria-describedby={
+                      errors[name] ? `${name}-error` : undefined
+                    }
+                  />
+                  {errors[name] && (
+                    <p
+                      id={`${name}-error`}
+                      className="mt-1 text-sm text-red-600"
+                    >
+                      {errors[name]}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {serverError && (
+              <p
+                role="alert"
+                className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
               >
-                Edit Profile
-              </button>
-            ) : (
-              <>
+                {serverError}
+              </p>
+            )}
+
+            {editMode && (
+              <div className="mt-7 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
                 <button
-                  onClick={handleSave}
-                  className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2"
-                >
-                  Save Changes
-                </button>
-                <button
-                  onClick={() => setEditMode(false)}
-                  className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                 >
                   Cancel
                 </button>
-              </>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-lg bg-[#12372a] px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? "Saving..." : "Save changes"}
+                </button>
+              </div>
             )}
-          </div>
-        </div>
-      </div>
+          </form>
+        </section>
+      </main>
     </div>
-    <ToastContainer />
-    </>
   );
 };
 

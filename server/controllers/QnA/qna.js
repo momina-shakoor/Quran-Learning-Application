@@ -17,21 +17,31 @@ const getQuestions = async (req, res) => {
 const addQuestion = async (req, res) => {
   const { askby, question } = req.body;
 
-  if (!question) {
-    console.log("Missing fields:", { askby, question });
-    return res.status(400).json({ message: "Question is a required field." });
+  if (!question?.trim()) {
+    return res.status(400).json({
+      message: "Question is required.",
+    });
+  }
+
+  if (!askby) {
+    return res.status(400).json({
+      message: "askby is required.",
+    });
   }
 
   try {
-    // Create the new question without `askby` if it's no longer part of the schema
     const newQuestion = new AskQuestion({
-      question,
+      question: question.trim(),
+      askby,
     });
+
     const savedQuestion = await newQuestion.save();
-    res.status(201).json(savedQuestion);
+    return res.status(201).json(savedQuestion);
   } catch (error) {
-    console.error("Error adding question:", error);
-    res.status(500).json({ message: error.message });
+    console.error("Error adding question:", error.message);
+    return res.status(500).json({
+      message: "Could not save the question.",
+    });
   }
 };
 
