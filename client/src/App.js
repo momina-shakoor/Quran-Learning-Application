@@ -61,7 +61,10 @@ function App() {
           <Route path="/student" element={<AdminStudent />} />
           <Route path="/courses" element={<AdminCourse />} />
           <Route path="/profile" element={<AdminProfile />} />
-          <Route path="/attemptassignment" element={<AttemptAssignment />} />
+          <Route
+            path="/attemptassignment/:id"
+            element={<AttemptAssignment />}
+          />
           <Route path="/attemptquiz/:id" element={<AttemptQuiz />} />
           <Route path="/studentlecture" element={<StudentLecture />} />
         </Routes>
