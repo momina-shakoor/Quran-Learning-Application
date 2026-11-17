@@ -1,4 +1,4 @@
-const AuthModel = require("../../models/Autrh/auth");
+const AuthModel = require("../../models/Auth/auth");
 
 const getLeaderboard = async (req, res) => {
   try {

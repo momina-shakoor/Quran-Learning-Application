@@ -1,432 +1,567 @@
 import React, { useEffect, useState } from "react";
-import { MdDeleteOutline } from "react-icons/md";
-import { CiMoneyCheck1 } from "react-icons/ci";
 import { Link } from "react-router-dom";
-import { FaHome } from "react-icons/fa";
-import { IoChevronBackSharp } from "react-icons/io5";
-import { FaRegUser } from "react-icons/fa";
-import { FaBarsProgress } from "react-icons/fa6";
-import { RiLogoutCircleLine } from "react-icons/ri";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { IoChevronBackSharp } from "react-icons/io5";
+import { MdAssignment, MdDeleteOutline } from "react-icons/md";
+import { FaCalendarAlt, FaPlus } from "react-icons/fa";
+import { CiMoneyCheck1 } from "react-icons/ci";
+import { RxCross1 } from "react-icons/rx";
+
+const API_URL = "http://localhost:8080/api/users";
+
+const emptyAssignment = {
+  assignmentTopic: "",
+  deadline: "",
+  assignmentQuestion: "",
+  course: "",
+};
+
+const getId = (value) => {
+  if (!value) return "";
+  return typeof value === "object" ? value._id : value;
+};
 
 const Assignments = () => {
+  const [assignments, setAssignments] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [attempts, setAttempts] = useState([]);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [newAssignment, setNewAssignment] = useState(emptyAssignment);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showSubmissionDialog, setShowSubmissionDialog] = useState(false);
-  const [showResponseDialog, setShowResponseDialog] = useState(false);
-  const [newAssignment, setNewAssignment] = useState({
-    assignmentTopic: "",
-    deadline: "",
-    assignmentQuestion: "",
-  });
-  const [selectedResponse, setSelectedResponse] = useState({
-    text: "",
-    grade: "",
-  });
-  const [Assignments, setAssignments] = useState();
-  const [courses, setCourses] = useState([]);
-  const fetchCourses = async () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const fetchAssignments = async () => {
+    setIsLoading(true);
     try {
-      const { data } = await axios.get(
-        "http://localhost:8080/api/users/allcourses"
-      );
-      console.log(data.allcourses);
-      setCourses(data.allcourses);
+      const { data } = await axios.get(`${API_URL}/allassignments`);
+      setAssignments(data.allassignments || data.allAssignments || []);
     } catch (error) {
-      console.log(error);
+      toast.error(
+        error.response?.data?.message || "Could not load assignments.",
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
-  const fecthAssignmnets = async () => {
+
+  const fetchCourses = async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:8080/api/users/allassignmnets"
-      );
-      setAssignments(response.data.allassignments);
-    } catch (error) {}
+      const { data } = await axios.get(`${API_URL}/allcourses`);
+      setCourses(data.allcourses || []);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not load courses.");
+    }
   };
 
   useEffect(() => {
-    fecthAssignmnets();
+    fetchAssignments();
     fetchCourses();
   }, []);
-  const formatDate = (dateString) => {
-    const options = { year: "numeric", month: "long", day: "numeric" };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
-
-  const submissions = [
-    {
-      date: "5/5/2023",
-      studentName: "John Doe",
-      grade: "A",
-      response: "This is the response text from John Doe.",
-    },
-    {
-      date: "6/5/2023",
-      studentName: "Jane Smith",
-      grade: "B+",
-      response: "This is the response text from Jane Smith.",
-    },
-    {
-      date: "6/5/2023",
-      studentName: "Jane Smith",
-      grade: "B+",
-      response: "This is the response text from Jane Smith.",
-    },
-    {
-      date: "6/5/2023",
-      studentName: "Jane Smith",
-      grade: "B+",
-      response: "This is the response text from Jane Smith.",
-    },
-    {
-      date: "6/5/2023",
-      studentName: "Jane Smith",
-      grade: "B+",
-      response: "This is the response text from Jane Smith.",
-    },
-    {
-      date: "6/5/2023",
-      studentName: "Jane Smith",
-      grade: "B+",
-      response: "This is the response text from Jane Smith.",
-    },
-  ];
-
-  const handleCreateButtonClick = () => {
-    setShowCreateDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setShowCreateDialog(false);
-    setNewAssignment({ name: "", deadline: "", detail: "" });
-  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewAssignment((prev) => ({ ...prev, [name]: value }));
+    setNewAssignment((current) => ({ ...current, [name]: value }));
+  };
+
+  const closeCreateDialog = () => {
+    setShowCreateDialog(false);
+    setNewAssignment(emptyAssignment);
   };
 
   const handleSubmitAssignment = async (e) => {
     e.preventDefault();
-    console.log("New Assignment:", newAssignment);
-    try {
-      const { data } = await axios.post(
-        "http://localhost:8080/api/users/addassignment",
-        newAssignment
-      );
-      toast.success(data.message);
-    } catch (error) {
-      toast.error(error.message);
+
+    if (
+      !newAssignment.assignmentTopic.trim() ||
+      !newAssignment.assignmentQuestion.trim() ||
+      !newAssignment.course
+    ) {
+      toast.error("Complete the title, course, and assignment details.");
+      return;
     }
-    // Logic to submit the new assignment goes here
-    handleCloseDialog();
+
+    setIsCreating(true);
+    try {
+      const { data } = await axios.post(`${API_URL}/addassignment`, {
+        ...newAssignment,
+        assignmentTopic: newAssignment.assignmentTopic.trim(),
+        assignmentQuestion: newAssignment.assignmentQuestion.trim(),
+      });
+
+      toast.success(data.message || "Assignment created.");
+      closeCreateDialog();
+      await fetchAssignments();
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Could not create assignment.",
+      );
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const handleSubmissionClick = () => {
+  const handleViewSubmissions = async (assignment) => {
+    setSelectedAssignment(assignment);
+    setSelectedSubmission(null);
     setShowSubmissionDialog(true);
+    setIsLoadingSubmissions(true);
+    setAttempts([]);
+
+    try {
+      const { data } = await axios.get(`${API_URL}/allassignmentattempts`);
+      const allAttempts =
+        data.allassignmentattempts ||
+        data.allAssignmentAttempts ||
+        data.assignmentAttempts ||
+        [];
+
+      const matchingAttempts = allAttempts.filter(
+        (attempt) => getId(attempt.assignment) === assignment._id,
+      );
+
+      setAttempts(matchingAttempts);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Could not load submissions.",
+      );
+    } finally {
+      setIsLoadingSubmissions(false);
+    }
   };
 
-  const handleCloseSubmissionDialog = () => {
-    setShowSubmissionDialog(false);
+  const handleDelete = async (id) => {
+    // Your supplied routes did not show an assignment delete endpoint.
+    // This handler is enabled only if that route is added to the backend.
+    setDeletingId(id);
+    try {
+      const { data } = await axios.delete(`${API_URL}/deleteassignment/${id}`);
+      setAssignments((current) =>
+        current.filter((assignment) => assignment._id !== id),
+      );
+      toast.success(data.message || "Assignment deleted.");
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Could not delete assignment. Check that the delete route exists.",
+      );
+    } finally {
+      setDeletingId(null);
+    }
   };
 
-  const handleCheckResponseClick = (submission) => {
-    setSelectedResponse(submission);
-    setShowResponseDialog(true);
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "Not set";
+    const date = new Date(dateValue);
+    return Number.isNaN(date.getTime()) ? "Not set" : date.toLocaleDateString();
   };
 
-  const handleCloseResponseDialog = () => {
-    setShowResponseDialog(false);
-    setSelectedResponse({ text: "", grade: "" });
+  const getStudentName = (attempt) => {
+    const student = attempt.attemptBy;
+    if (!student || typeof student !== "object") return "Student";
+    return (
+      [student.firstName, student.lastName].filter(Boolean).join(" ") ||
+      "Student"
+    );
   };
 
-  const handleGradeChange = (e) => {
-    setSelectedResponse((prev) => ({ ...prev, grade: e.target.value }));
-  };
-
-  const handleSubmitGrade = () => {
-    console.log("Submitted Grade:", selectedResponse.grade);
-    // Logic to submit the grade goes here
-    handleCloseResponseDialog();
-  };
+  const getAnswer = (attempt) =>
+    attempt.assignmentAnswer ||
+    attempt.answer ||
+    attempt.response ||
+    "No answer provided";
 
   return (
-    <div className="flex flex-wrap h-[100vh] w-[100%]">
-      <div className="bg-[#172285] text-white w-[20%] h-full fixed">
-        <div className="text-2xl font-bold p-2 flex flex-wrap">
-          <h1>Dash</h1>
-          <h1>Board</h1>
-        </div>
-        <div className="mt-10">
-          <Link to="/TeacherDashboard">
-            <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-              <IoChevronBackSharp className="mt-1" />
-              Back
-            </div>
+    <main className="min-h-screen bg-[#f4f7f2] text-slate-800">
+      <header className="border-b border-emerald-950/10 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <Link
+            to="/TeacherDashboard"
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-50"
+          >
+            <IoChevronBackSharp aria-hidden="true" />
+            Dashboard
           </Link>
-          <Link to="/">
-            <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-              <FaHome className="mt-1" />
-              Home
-            </div>
-          </Link>
-          <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-            <FaRegUser className="mt-1" />
-            Profile
-          </div>
-          <div className="mb-2 text-lg flex flex-wrap gap-2 py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b border-white hover-effect w-[80%]">
-            <FaBarsProgress className="mt-1" />
-            Progress
-          </div>
-          <div className="mb-2 text-lg flex flex-wrap gap-2  py-2 lg:px-4 md:px-4 md:mx-2 lg:mx-2 ml-1 border-b text-red-600  border-white hover-effect w-[80%]">
-            <RiLogoutCircleLine className="mt-1" />
-            Logout
-          </div>
+          <span className="text-sm font-medium text-slate-500">
+            Teacher workspace
+          </span>
         </div>
-      </div>
-      <div className="w-[80%] ml-[20%]">
-        <div className="flex flex-wrap p-2 gap-[70%]">
-          <h1 className="p-2 text-3xl text-blue-900 font-semibold">
-            Assignments
-          </h1>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <section className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-800">
+              Student practice
+            </p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#12372a] sm:text-4xl">
+              Assignments
+            </h1>
+            <p className="mt-3 max-w-2xl leading-7 text-slate-600">
+              Create assignments and review student submissions.
+            </p>
+          </div>
+
           <button
-            onClick={handleCreateButtonClick}
-            className="m-2 p-2 text-xl bg-blue-600 text-white rounded-lg hover:scale-105 transition-transform duration-300"
+            type="button"
+            onClick={() => setShowCreateDialog(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
           >
-            Create +
+            <FaPlus aria-hidden="true" />
+            Create assignment
           </button>
-        </div>
-        <div className="p-2 bg-blue-500 m-2 text-white flex flex-wrap gap-[65%]">
-          <div className="">
-            <h2 className="text-xl underline">Submitted Assigments </h2>
-            <h2 className="text-lg my-2">Assignment 2</h2>
-            <h3>30 Out of 40 Submitted</h3>
-            <h3 className="text-red-700 animate-blink">
-              Time Remaining : 30 mins
-            </h3>
+        </section>
+
+        <section className="mt-8">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-[#12372a]">
+              Assignment list
+            </h2>
+            <span className="text-sm text-slate-500">
+              {assignments.length}{" "}
+              {assignments.length === 1 ? "assignment" : "assignments"}
+            </span>
           </div>
-          <div
-            onClick={handleSubmissionClick}
-            className="my-10 p-2 bg-white text-blue-700 rounded-lg hover:scale-105 transition-transform duration-300 cursor-pointer"
-          >
-            <h1>Check submissions</h1>
-          </div>
-        </div>
-        <div className="m-2 bg-blue-500 text-white p-2">
-          <h1>Previous Assignments</h1>
-          <div className="flex flex-wrap">
-            <div className="text-xl w-[30%]">Date</div>
-            <div className="text-xl w-[30%]">Title</div>
-            <div className="text-xl w-[30%]">Action</div>
-          </div>
-          {Assignments?.map((item, index) => (
-            <div
-              className="flex flex-wrap my-2 border-b py-2 border-white"
-              key={index}
-            >
-              <div className="w-[30%]">{formatDate(item.createdAt)}</div>
-              <div className="w-[30%]">{item.assignmentTopic}</div>
-              <div className="lg:w-[30%] lg:flex lg:flex-wrap lg:gap-4">
-                <div className="hover:underline flex flex-wrap gap-1">
-                  <MdDeleteOutline className="mt-1" />
-                  Delete
-                </div>
-                <div
-                  className="hover:underline flex flex-wrap gap-1 cursor-pointer"
-                  onClick={handleSubmissionClick}
-                >
-                  <CiMoneyCheck1 className="mt-1" />
-                  Submissions
-                </div>
-              </div>
+
+          {isLoading ? (
+            <div className="rounded-2xl border border-emerald-950/10 bg-white px-5 py-12 text-center text-slate-500">
+              Loading assignments…
             </div>
-          ))}
-        </div>
+          ) : assignments.length === 0 ? (
+            <div className="rounded-2xl border border-emerald-950/10 bg-white px-5 py-12 text-center">
+              <MdAssignment className="mx-auto text-4xl text-emerald-700" />
+              <p className="mt-3 font-semibold text-slate-700">
+                No assignments available
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Create an assignment to get started.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {assignments.map((assignment) => (
+                <article
+                  key={assignment._id}
+                  className="flex flex-col rounded-2xl border border-emerald-950/10 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                      <MdAssignment className="text-2xl" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="break-words font-semibold text-[#12372a]">
+                        {assignment.assignmentTopic}
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {assignment.course?.courseName ||
+                          courses.find(
+                            (course) => course._id === getId(assignment.course),
+                          )?.courseName ||
+                          "Course not specified"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {assignment.assignmentQuestion && (
+                    <p className="mt-4 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                      {assignment.assignmentQuestion}
+                    </p>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      <FaCalendarAlt aria-hidden="true" />
+                      Created {formatDate(assignment.createdAt)}
+                    </span>
+                    {assignment.deadline && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <FaCalendarAlt aria-hidden="true" />
+                        Due {formatDate(assignment.deadline)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleViewSubmissions(assignment)}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-800/20 px-3 py-2.5 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                    >
+                      <CiMoneyCheck1 className="text-lg" aria-hidden="true" />
+                      Submissions
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(assignment._id)}
+                      disabled={deletingId === assignment._id}
+                      aria-label={`Delete ${assignment.assignmentTopic}`}
+                      className="inline-flex items-center justify-center rounded-xl border border-red-200 px-3 py-2.5 text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                    >
+                      <MdDeleteOutline className="text-xl" aria-hidden="true" />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
+
       {showCreateDialog && (
-        <div className="fixed inset-0 z-50 flex justify-center items-center bg-opacity-50 bg-black">
-          <div className="relative w-[40%] h-auto p-4 mx-2 bg-white rounded-lg shadow-lg">
-            <button
-              onClick={handleCloseDialog}
-              className="absolute top-2 right-2 text-gray-500"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 cursor-pointer"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-assignment-title"
+            className="my-8 w-full max-w-2xl rounded-2xl bg-white shadow-xl"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-7">
+              <div>
+                <h2
+                  id="create-assignment-title"
+                  className="text-xl font-bold text-[#12372a]"
+                >
+                  Create assignment
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Add the assignment details for students.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCreateDialog}
+                aria-label="Close"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-            <div className="p-4">
-              <h2 className="text-2xl font-bold mb-4">Create New Assignment</h2>
-              <div className="mb-4">
-                <label className="block text-lg mb-2">Assignment Name</label>
+                <RxCross1 aria-hidden="true" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSubmitAssignment}
+              className="space-y-4 p-5 sm:p-7"
+            >
+              <div>
+                <label
+                  htmlFor="assignmentTopic"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Assignment title
+                </label>
                 <input
-                  type="text"
+                  id="assignmentTopic"
                   name="assignmentTopic"
                   value={newAssignment.assignmentTopic}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded-lg"
-                  placeholder="Enter assignment name"
+                  maxLength={120}
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
+                  placeholder="Enter an assignment title"
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-lg mb-2">Select Subject</label>
+
+              <div>
+                <label
+                  htmlFor="course"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Course
+                </label>
                 <select
-                  name="course"
                   id="course"
+                  name="course"
                   value={newAssignment.course}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded-lg"
+                  required
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
                 >
-                  <option value="" disabled selected>
-                    Select
+                  <option value="" disabled>
+                    Select a course
                   </option>
-                  {courses?.map((item) => {
-                    return <option value={item._id}>{item.courseName}</option>;
-                  })}
+                  {courses.map((course) => (
+                    <option key={course._id} value={course._id}>
+                      {course.courseName}
+                    </option>
+                  ))}
                 </select>
+                {courses.length === 0 && (
+                  <p className="mt-2 text-sm text-amber-700">
+                    Add a course before creating an assignment.
+                  </p>
+                )}
               </div>
-              <div className="mb-4">
-                <label className="block text-lg mb-2">Deadline Time</label>
+
+              <div>
+                <label
+                  htmlFor="deadline"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Deadline (optional)
+                </label>
                 <input
+                  id="deadline"
                   type="datetime-local"
                   name="deadline"
                   value={newAssignment.deadline}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded-lg"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-lg mb-2">Assignment Detail</label>
+
+              <div>
+                <label
+                  htmlFor="assignmentQuestion"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Assignment details
+                </label>
                 <textarea
+                  id="assignmentQuestion"
                   name="assignmentQuestion"
                   value={newAssignment.assignmentQuestion}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded-lg"
-                  placeholder="Enter assignment details"
-                ></textarea>
+                  rows={5}
+                  maxLength={5000}
+                  required
+                  className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
+                  placeholder="Describe the assignment..."
+                />
               </div>
-              <button
-                onClick={handleSubmitAssignment}
-                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-300"
-              >
-                Create
-              </button>
-            </div>
-          </div>
+
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeCreateDialog}
+                  className="rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating || courses.length === 0}
+                  className="rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isCreating ? "Creating…" : "Create assignment"}
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
       )}
+
       {showSubmissionDialog && (
-        <div className="fixed inset-0 z-50 flex justify-center items-center bg-opacity-50 bg-black">
-          <div className="relative w-[40%] h-[60%] p-4 mx-2 bg-white shadow-lg overflow-y-auto">
-            <button
-              onClick={handleCloseSubmissionDialog}
-              className="absolute top-2 right-2 text-gray-500"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 cursor-pointer"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-            <div className="p-4">
-              <h2 className="text-2xl font-bold mb-4">Submissions</h2>
-              {submissions.map((submission, index) => (
-                <div
-                  key={index}
-                  className="mb-4 p-2 border rounded-lg hover:bg-gray-100 cursor-pointer"
-                  onClick={() => handleCheckResponseClick(submission)}
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assignment-submissions-title"
+            className="my-8 max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl"
+          >
+            <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-7">
+              <div>
+                <h2
+                  id="assignment-submissions-title"
+                  className="text-xl font-bold text-[#12372a]"
                 >
-                  <p>
-                    <strong>Student Name:</strong> {submission.studentName}
-                  </p>
-                  <p>
-                    <strong>Submission Date:</strong> {submission.date}
-                  </p>
-                  <p>
-                    <strong>Grade:</strong> {submission.grade}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-      {showResponseDialog && selectedResponse && (
-        <div className="fixed inset-0 z-50 flex justify-center items-center bg-opacity-50 bg-black">
-          <div className="relative w-[40%] h-auto p-4 mx-2 bg-white shadow-lg">
-            <button
-              onClick={handleCloseResponseDialog}
-              className="absolute top-2 right-2 text-gray-500"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 cursor-pointer"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-            <div className="p-4">
-              <h2 className="text-2xl font-bold mb-4">Student Response</h2>
-              <div className="mb-4">
-                <label className="block text-lg mb-2">Response</label>
-                <p>{selectedResponse.response}</p>
-              </div>
-              <div className="mb-4">
-                <label className="block text-lg mb-2">Grade</label>
-                <select
-                  name="grade"
-                  value={selectedResponse.grade}
-                  onChange={handleGradeChange}
-                  className="w-full p-2 border rounded-lg"
-                >
-                  <option value="">Select Grade</option>
-                  <option value="A+">A+</option>
-                  <option value="A">A</option>
-                  <option value="B+">B+</option>
-                  <option value="B">B</option>
-                  <option value="C+">C+</option>
-                  <option value="C">C</option>
-                </select>
+                  Submissions
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {selectedAssignment?.assignmentTopic}
+                </p>
               </div>
               <button
-                onClick={handleSubmitGrade}
-                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-300"
+                type="button"
+                onClick={() => {
+                  setShowSubmissionDialog(false);
+                  setSelectedSubmission(null);
+                }}
+                aria-label="Close submissions"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
               >
-                Submit Grade
+                <RxCross1 aria-hidden="true" />
               </button>
             </div>
-          </div>
+
+            <div className="space-y-3 p-5 sm:p-7">
+              {isLoadingSubmissions ? (
+                <p className="py-10 text-center text-slate-500">
+                  Loading submissions…
+                </p>
+              ) : attempts.length === 0 ? (
+                <p className="py-10 text-center text-slate-500">
+                  No submissions found for this assignment.
+                </p>
+              ) : (
+                attempts.map((attempt) => (
+                  <button
+                    key={attempt._id}
+                    type="button"
+                    onClick={() => setSelectedSubmission(attempt)}
+                    className="w-full rounded-xl border border-slate-200 p-4 text-left transition hover:border-emerald-800/30 hover:bg-emerald-50/50"
+                  >
+                    <span className="block font-semibold text-slate-800">
+                      {getStudentName(attempt)}
+                    </span>
+                    <span className="mt-1 block line-clamp-2 text-sm text-slate-600">
+                      {getAnswer(attempt)}
+                    </span>
+                    <span className="mt-2 block text-xs text-slate-500">
+                      Submitted {formatDate(attempt.createdAt)}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
         </div>
       )}
-    </div>
+
+      {selectedSubmission && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="submission-response-title"
+            className="w-full max-w-xl rounded-2xl bg-white shadow-xl"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2
+                  id="submission-response-title"
+                  className="text-lg font-bold text-[#12372a]"
+                >
+                  Student response
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {getStudentName(selectedSubmission)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSubmission(null)}
+                aria-label="Close response"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+              >
+                <RxCross1 aria-hidden="true" />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="whitespace-pre-wrap break-words leading-7 text-slate-700">
+                {getAnswer(selectedSubmission)}
+              </p>
+              <p className="mt-4 text-xs text-slate-500">
+                Submitted {formatDate(selectedSubmission.createdAt)}
+              </p>
+            </div>
+          </section>
+        </div>
+      )}
+    </main>
   );
 };
 

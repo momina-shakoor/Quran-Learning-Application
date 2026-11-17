@@ -1,131 +1,212 @@
 import React, { useState } from "react";
-import { CiUser, CiLock } from "react-icons/ci";
-import { AiOutlineEye } from "react-icons/ai";
-import { useDispatch} from 'react-redux';
 import axios from "axios";
-import { toast } from "react-toastify";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { toast } from "react-toastify";
+import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { loginUser } from "../redux/action";
+
 const AdminLogin = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
   const [data, setData] = useState({
     email: "",
     password: "",
   });
-
-  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setData((prevData) => ({
-      ...prevData,
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
+
+    setData((current) => ({
+      ...current,
       [name]: value,
     }));
+
+    setError("");
   };
 
-  const handleTogglePassword = () => {
-    setShowPassword((prevShowPassword) => !prevShowPassword);
-  };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    const email = data.email.trim().toLowerCase();
+
+    if (!email || !data.password) {
+      setError("Enter your email and password.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
       const response = await axios.post(
         "http://localhost:8080/api/users/adminlogin",
-        data
+        {
+          email,
+          password: data.password,
+        },
       );
-      const userfound=response.data.user;
-     
-     
-      console.log(response);
-      dispatch(loginUser(userfound));
-      toast.success(response.data.message);
-       navigate("/AdminDashboard");
-    
-    } catch (error) {
-      setError("Problem in Logging in");
-      toast.error("Problem in Logging in");
+
+      const admin = response.data?.user;
+
+      if (!admin || admin.role !== "admin") {
+        setError("This account does not have admin access.");
+        return;
+      }
+
+      // Store only the fields the UI needs, not the password hash.
+      dispatch(
+        loginUser({
+          _id: admin._id,
+          firstName: admin.firstName,
+          lastName: admin.lastName,
+          email: admin.email,
+          role: admin.role,
+        }),
+      );
+
+      toast.success(response.data.message || "Signed in successfully.");
+      navigate("/admindashboard");
+    } catch (requestError) {
+      const message =
+        requestError.response?.data?.message ||
+        requestError.response?.data?.msg ||
+        "Unable to sign in. Check your email and password.";
+
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0, 0, 0, 0.5)",
-        backdropFilter: "blur(10px)",
-        zIndex: 50,
-      }}
-    >
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full sm:w-96 relative">
-        <Link to="/">
-          <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 focus:outline-none">
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </Link>
+  const inputClass =
+    "w-full rounded-lg border border-slate-300 bg-white py-3 pl-4 pr-12 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/10";
 
-        <h1 className="text-3xl font-bold mb-6">Admin Login</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <CiUser className="text-2xl" />
-            <input
-              required
-              type="text"
-              name="email"
-              value={data.email}
-              onChange={handleInputChange}
-              placeholder="Email"
-              className="w-full border border-gray-300 px-3 py-2 rounded-md focus:outline-none focus:ring focus:border-blue-500"
-            />
+  return (
+    <main className="min-h-screen bg-[#f3f5ef] px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto grid max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl shadow-emerald-950/10 lg:grid-cols-2">
+        <aside className="hidden flex-col justify-between bg-[#12372a] p-10 text-white lg:flex xl:p-12">
+          <Link to="/" className="text-xl font-bold tracking-tight">
+            Marfat-ul-Quran
+          </Link>
+
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-amber-300">
+              Administration
+            </p>
+            <h1 className="mt-4 text-4xl font-bold leading-tight">
+              Manage your learning platform.
+            </h1>
+            <p className="mt-5 leading-7 text-emerald-50/75">
+              Sign in to manage courses, students, and teacher accounts.
+            </p>
           </div>
-          <div className="flex items-center space-x-2">
-            <CiLock className="text-2xl" />
-            <input
-              required
-              type={showPassword ? "text" : "password"}
-              name="password"
-              value={data.password}
-              onChange={handleInputChange}
-              placeholder="Password"
-              className="w-full border border-gray-300 px-3 py-2 rounded-md focus:outline-none focus:ring focus:border-blue-500"
-            />
-            <AiOutlineEye
-              className="text-2xl cursor-pointer"
-              onClick={handleTogglePassword}
-            />
+
+          <p className="text-sm text-emerald-50/60">
+            Administrator access is provided by the platform.
+          </p>
+        </aside>
+
+        <section className="p-6 sm:p-10 lg:p-12">
+          <div className="mb-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-800 lg:hidden">
+              Marfat-ul-Quran · Admin
+            </p>
+            <h2 className="mt-1 text-3xl font-bold tracking-tight text-[#12372a]">
+              Admin sign in
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Enter your administrator account details to continue.
+            </p>
           </div>
-          {error && <div className="text-red-500 text-sm">{error}</div>}
-          <button
-            type="submit"
-            className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:border-blue-500"
-          >
-            Login
-          </button>
-        </form>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Email address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="username"
+                value={data.email}
+                onChange={handleInputChange}
+                placeholder="admin@example.com"
+                required
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={data.password}
+                  onChange={handleInputChange}
+                  placeholder="Enter your password"
+                  required
+                  className={inputClass}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-emerald-800"
+                >
+                  {showPassword ? (
+                    <AiOutlineEyeInvisible className="h-5 w-5" />
+                  ) : (
+                    <AiOutlineEye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <p
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#12372a] px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? "Signing in…" : "Sign in to admin"}
+            </button>
+
+            <Link
+              to="/"
+              className="block text-center text-sm font-medium text-slate-500 hover:text-emerald-800"
+            >
+              Return to the main site
+            </Link>
+          </form>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
 

@@ -1,143 +1,108 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { RxCross1 } from "react-icons/rx";
+import { FaUserShield, FaEnvelope, FaUserTag } from "react-icons/fa";
+
 const AdminProfile = () => {
-  // Example initial admin profile state
-  const initialProfile = {
-    id: 1, // Assuming an ID for the admin profile
-    username: "admin",
-    fullName: "Admin User",
-    email: "admin@example.com",
-    phone: "123-456-7890",
-    address: "123 Admin St, Adminville",
-  };
+  const admin = useSelector((state) => state.custom.user);
 
-  const [profile, setProfile] = useState(initialProfile);
-  const [editMode, setEditMode] = useState(false);
-  const [form, setForm] = useState({ ...initialProfile });
+  const fullName = [admin?.firstName, admin?.lastName]
+    .filter(Boolean)
+    .join(" ");
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
-  };
-
-  const handleEdit = () => {
-    setEditMode(true);
-    setForm({ ...profile });
-  };
-
-  const handleCancel = () => {
-    setEditMode(false);
-    setForm({ ...profile });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setProfile({ ...form });
-    setEditMode(false);
-  };
+  const initials =
+    [admin?.firstName, admin?.lastName]
+      .filter(Boolean)
+      .map((name) => name[0])
+      .join("")
+      .toUpperCase() || "A";
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100">
-      <div className="lg:w-[80%] w-full p-2 mx-2 bg-white rounded-lg shadow-lg">
-        <Link to="/admindashboard" className="text-gray-500">
-          <RxCross1 />
-        </Link>
-        <div className="p-4 max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold">Admin Profile</h2>
-            {!editMode && (
-              <button
-                onClick={handleEdit}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
-              >
-                Edit Profile
-              </button>
-            )}
-          </div>
-          <form
-            onSubmit={handleSubmit}
-            className={`p-4 bg-white rounded-lg shadow-md ${
-              editMode ? "" : "hidden"
-            }`}
+    <main className="fixed inset-0 z-50 overflow-y-auto bg-[#f4f7f2]">
+      <div className="mx-auto min-h-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+        <header className="mb-8 flex items-center justify-between">
+          <Link
+            to="/admindashboard"
+            aria-label="Back to admin dashboard"
+            className="rounded-full border border-emerald-900/10 bg-white p-3 text-slate-600 shadow-sm transition hover:bg-emerald-50 hover:text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                name="fullName"
-                value={form.fullName}
-                onChange={handleChange}
-                placeholder="Full Name"
-                required
-                className="p-2 border border-gray-300 rounded-md"
-              />
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="Email"
-                required
-                className="p-2 border border-gray-300 rounded-md"
-              />
-              <input
-                type="text"
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                placeholder="Phone"
-                required
-                className="p-2 border border-gray-300 rounded-md"
-              />
-              <input
-                type="text"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                placeholder="Address"
-                required
-                className="p-2 border border-gray-300 rounded-md"
-              />
+            <RxCross1 aria-hidden="true" />
+          </Link>
+          <span className="text-sm font-medium text-slate-500">
+            Admin workspace
+          </span>
+        </header>
+
+        <section className="overflow-hidden rounded-3xl border border-emerald-950/10 bg-white shadow-sm">
+          <div className="h-36 bg-gradient-to-r from-emerald-900 via-emerald-800 to-[#486b4e] sm:h-48" />
+
+          <div className="px-5 pb-8 sm:px-9">
+            <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end sm:justify-between">
+              <div className="flex items-end gap-4">
+                <div className="flex h-24 w-24 items-center justify-center rounded-3xl border-4 border-white bg-emerald-100 text-2xl font-bold text-emerald-900 shadow-sm sm:h-28 sm:w-28">
+                  {initials}
+                </div>
+                <div className="pb-6">
+                  <p className="text-sm font-semibold uppercase tracking-wider text-white">
+                    Administrator
+                  </p>
+                  <h1 className="mt-1 text-2xl font-bold text-[#12372a] sm:text-3xl">
+                    {fullName || "Admin"}
+                  </h1>
+                </div>
+              </div>
+              <span className="mb-2 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-900">
+                <FaUserShield aria-hidden="true" />
+                Admin account
+              </span>
             </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="mr-2 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
-              >
-                Save
-              </button>
-            </div>
-          </form>
-          <div className={`${editMode ? "hidden" : ""}`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="mb-4">
-                <p className="font-semibold">Full Name:</p>
-                <p>{profile.fullName}</p>
-              </div>
-              <div className="mb-4">
-                <p className="font-semibold">Email:</p>
-                <p>{profile.email}</p>
-              </div>
-              <div className="mb-4">
-                <p className="font-semibold">Phone:</p>
-                <p>{profile.phone}</p>
-              </div>
-              <div className="mb-4">
-                <p className="font-semibold">Address:</p>
-                <p>{profile.address}</p>
-              </div>
+
+            <div className="mt-8 border-t border-slate-100 pt-7">
+              <h2 className="text-lg font-semibold text-[#12372a]">
+                Account details
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Information associated with your administrator account.
+              </p>
+
+              <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
+                  <dt className="flex items-center gap-2 text-sm font-medium text-slate-500">
+                    <FaUserTag
+                      className="text-emerald-800"
+                      aria-hidden="true"
+                    />
+                    Name
+                  </dt>
+                  <dd className="mt-2 font-semibold text-slate-800">
+                    {fullName || "Not provided"}
+                  </dd>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
+                  <dt className="flex items-center gap-2 text-sm font-medium text-slate-500">
+                    <FaEnvelope
+                      className="text-emerald-800"
+                      aria-hidden="true"
+                    />
+                    Email
+                  </dt>
+                  <dd className="mt-2 break-all font-semibold text-slate-800">
+                    {admin?.email || "Not provided"}
+                  </dd>
+                </div>
+              </dl>
+
+              <p className="mt-6 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                Profile editing is not connected yet. The details above come
+                from the current login session.
+              </p>
             </div>
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
 

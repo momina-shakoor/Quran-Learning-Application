@@ -1,151 +1,304 @@
-import React, { useState, useEffect } from "react";
-import { RxCross1 } from "react-icons/rx";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
+import axios from "axios";
 import { toast } from "react-toastify";
+import { RxCross1 } from "react-icons/rx";
+import { FaRegQuestionCircle, FaReply } from "react-icons/fa";
+
+const API_URL = "http://localhost:8080/api/users";
 
 const Qna = () => {
-  const [showReplyBox, setShowReplyBox] = useState(false);
+  const teacher = useSelector((state) => state.custom.user);
+  const [questions, setQuestions] = useState([]);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [reply, setReply] = useState("");
-  const [questions, setQuestions] = useState([]);
-  const teacherId = localStorage.getItem("teacherId"); // Get teacher ID from local storage
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetch("http://localhost:8080/api/users/questions") // Updated URL
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        return response.json();
-      })
-      .then((data) => setQuestions(data))
-      .catch((error) => {
-        console.error("Fetch error:", error); // Log fetch error
-        toast.error("Error fetching questions: " + error.message);
-      });
-  }, []);
+  const fetchQuestions = async () => {
+    setIsLoading(true);
+    try {
+      const { data } = await axios.get(`${API_URL}/questions`);
+      const questionList = Array.isArray(data)
+        ? data
+        : data.questions || data.allQuestions || [];
 
-  const handleReplyClick = (question) => {
-    setSelectedQuestion(question);
-    setShowReplyBox(true);
+      setQuestions(questionList);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not load questions.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleCloseReplyBox = () => {
-    setShowReplyBox(false);
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  const openReply = (question) => {
+    setSelectedQuestion(question);
+    setReply("");
+  };
+
+  const closeReply = () => {
     setSelectedQuestion(null);
     setReply("");
   };
 
-  const handleSubmitReply = () => {
-    fetch("http://localhost:8080/api/users/answers", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ansby: teacherId,
+  const handleSubmitReply = async (e) => {
+    e.preventDefault();
+
+    if (!teacher?._id) {
+      toast.error(
+        "Your teacher session could not be found. Please sign in again.",
+      );
+      return;
+    }
+
+    const answerText = reply.trim();
+    if (!answerText) {
+      toast.error("Write a reply before submitting.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data } = await axios.post(`${API_URL}/answers`, {
+        ansby: teacher._id,
         question: selectedQuestion._id,
-        answer: reply,
-      }),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data) => {
-        toast.success("Answer submitted successfully!");
-        setQuestions(
-          questions.map((q) =>
-            q._id === selectedQuestion._id ? { ...q, reply: data.answer } : q
-          )
-        );
-        handleCloseReplyBox();
-      })
-      .catch((error) => {
-        toast.error("Error submitting answer: " + error.message);
-        console.error("Submit error:", error); // Debugging line
+        answer: answerText,
       });
+
+      const savedAnswer =
+        typeof data.answer === "string"
+          ? data.answer
+          : data.answer?.answer || answerText;
+
+      setQuestions((current) =>
+        current.map((question) =>
+          question._id === selectedQuestion._id
+            ? { ...question, reply: savedAnswer }
+            : question,
+        ),
+      );
+
+      toast.success(data.message || "Reply submitted.");
+      closeReply();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not submit reply.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "Date unavailable";
+    const date = new Date(dateValue);
+    return Number.isNaN(date.getTime())
+      ? "Date unavailable"
+      : date.toLocaleDateString();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-center items-center bg-opacity-50 bg-black">
-      <div className="w-[90%] p-2 mx-2 bg-white rounded-lg shadow-lg">
-        <div className="flex flex-wrap gap-[50%]">
-          <h1 className="p-2">All Questions</h1>
-          <Link to="/TeacherDashboard">
-            <RxCross1 />
+    <main className="min-h-screen bg-[#f4f7f2] text-slate-800">
+      <header className="border-b border-emerald-950/10 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <Link
+            to="/TeacherDashboard"
+            className="rounded-full border border-emerald-900/10 p-3 text-slate-600 shadow-sm transition hover:bg-emerald-50 hover:text-emerald-900"
+            aria-label="Back to teacher dashboard"
+          >
+            <RxCross1 aria-hidden="true" />
           </Link>
+          <span className="text-sm font-medium text-slate-500">
+            Teacher workspace
+          </span>
         </div>
+      </header>
 
-        <div className="border-blue-500 border-2 text-center">
-          <div className="flex flex-column gap-10 bg-blue-500 text-white py-4">
-            <div className="w-[10rem] ml-7">Student</div>
-            <div className="w-[29rem]">Question</div>
-            <div className="w-[3rem]">Reply</div>
-            <div className="w-[6rem]">Waiting since</div>
-            <div className="w-[4rem]">Action</div>
-          </div>
-          {Array.isArray(questions) && questions.length > 0 ? (
-            questions.map((item) => (
-              <div
-                key={item._id}
-                className="flex item-center justify-center gap-10 border-b-2 text-blue-900 py-2 border-blue-500"
-              >
-                <div className="w-[10rem] ml-7 flex gap-2 justify-center">
-                  <div>{item.askby?.firstName || "No Name"}</div>
-                </div>
-                <div className="w-[29rem] flex items-center justify-center">
-                  {item.question}
-                </div>
-                <div className="w-[3rem] flex items-center justify-center">
-                  {item.reply}
-                </div>
-                <div className="w-[6rem] flex items-center justify-center">
-                  {new Date(item.waitingSince).toLocaleDateString()}
-                </div>
-                <div className="w-[4rem] flex items-center justify-center">
-                  <button
-                    onClick={() => handleReplyClick(item)}
-                    className="px-2 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                  >
-                    Reply
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div>No questions available.</div>
-          )}
-        </div>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <section className="mb-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-800">
+            Student support
+          </p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#12372a] sm:text-4xl">
+            Questions & answers
+          </h1>
+          <p className="mt-3 max-w-2xl leading-7 text-slate-600">
+            Review questions from students and share helpful replies.
+          </p>
+        </section>
 
-        {showReplyBox && selectedQuestion && (
-          <div className="mt-4">
-            <textarea
-              className="w-full h-24 p-2 border rounded-lg"
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              placeholder="Write your reply here..."
-            />
-            <div className="flex justify-end gap-4 mt-4">
-              <button
-                onClick={handleSubmitReply}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-              >
-                Submit
-              </button>
-              <button
-                onClick={handleCloseReplyBox}
-                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-              >
-                Cancel
-              </button>
+        <section className="overflow-hidden rounded-2xl border border-emerald-950/10 bg-white shadow-sm">
+          <div className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <div>
+              <h2 className="font-semibold text-[#12372a]">
+                Student questions
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {questions.length}{" "}
+                {questions.length === 1 ? "question" : "questions"}
+              </p>
             </div>
           </div>
-        )}
+
+          {isLoading ? (
+            <p className="px-5 py-12 text-center text-slate-500">
+              Loading questions…
+            </p>
+          ) : questions.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <FaRegQuestionCircle className="mx-auto text-4xl text-emerald-700" />
+              <p className="mt-3 font-medium text-slate-700">
+                No questions available
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Student questions will appear here.
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {questions.map((item) => (
+                <li
+                  key={item._id}
+                  className="flex flex-col gap-4 px-5 py-5 sm:px-7"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-[#12372a]">
+                          {[item.askby?.firstName, item.askby?.lastName]
+                            .filter(Boolean)
+                            .join(" ") || "Student"}
+                        </p>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                            item.reply
+                              ? "bg-emerald-50 text-emerald-800"
+                              : "bg-amber-50 text-amber-800"
+                          }`}
+                        >
+                          {item.reply ? "Answered" : "Awaiting reply"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Asked {formatDate(item.waitingSince || item.createdAt)}
+                      </p>
+                    </div>
+
+                    {!item.reply && (
+                      <button
+                        type="button"
+                        onClick={() => openReply(item)}
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+                      >
+                        <FaReply aria-hidden="true" />
+                        Reply
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl bg-slate-50 p-4">
+                    <p className="whitespace-pre-wrap break-words leading-7 text-slate-700">
+                      {item.question}
+                    </p>
+                  </div>
+
+                  {item.reply && (
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                        Reply
+                      </p>
+                      <p className="whitespace-pre-wrap break-words leading-7 text-slate-700">
+                        {item.reply}
+                      </p>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
-    </div>
+
+      {selectedQuestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reply-dialog-title"
+            className="my-8 w-full max-w-xl rounded-2xl bg-white shadow-xl"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+              <div>
+                <h2
+                  id="reply-dialog-title"
+                  className="text-xl font-bold text-[#12372a]"
+                >
+                  Reply to student
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {selectedQuestion.askby?.firstName || "Student"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeReply}
+                aria-label="Close reply dialog"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+              >
+                <RxCross1 aria-hidden="true" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitReply} className="space-y-4 p-5 sm:p-6">
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                  {selectedQuestion.question}
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reply"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Your reply
+                </label>
+                <textarea
+                  id="reply"
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  rows={5}
+                  maxLength={3000}
+                  required
+                  placeholder="Write a helpful response..."
+                  className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 leading-6 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
+                />
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeReply}
+                  className="rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmitting ? "Sending…" : "Send reply"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+    </main>
   );
 };
 

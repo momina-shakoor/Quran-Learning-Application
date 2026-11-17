@@ -1,65 +1,65 @@
 const AdminModel = require("../../models/Admin/admin");
-const bcrypt=require("bcrypt");
+const bcrypt = require("bcrypt");
 
-exports.AdminSignup=async(req,res)=>{
-    console.log(req.body);
-    try {
-        const {firstName,lastName,password,email}=req.body;
-        const finduser=await AdminModel.findOne({email});
-        if(finduser){
-            return res.status(409).json({
-                success:false,
-                message:"User Already Exist"
-            })
-        }
-        const hashpassword=await bcrypt.hash(password,10)
-        const newUser=AdminModel({
-          firstName,
-          lastName,
-          password:hashpassword,
-          role:"admin",
-          email
-        })
-        await newUser.save();
-        res.status(200).json({
-            success:true,
-            message:"User Created Successfully",
-            newUser
+exports.AdminSignup = async (req, res) => {
+  return res.status(403).json({
+    success: false,
+    message: "Admin self-registration is disabled.",
+  });
+};
 
-        })
-    } catch (error) {
-        res.status(500).json({message:error.message});
-    }
-}
+exports.AdminLogin = async (req, res) => {
+  const email =
+    typeof req.body.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+  const password = req.body.password;
 
-exports.AdminLogin=async(req,res)=>{
- 
-    const {email,password}=req.body;
-   
-    try {
-        const user=await AdminModel.findOne({email})
-        if(!user){
-            return res.status(404).json({
-                success:false,
-                msg:"user not found"
-            })
-        }
-        
-         const matchpassowrd= bcrypt.compare(password,user.password);
-         console.log("passowrd matched",matchpassowrd);
-         if(!matchpassowrd){
-            return res.status(409).json({
-                success:false,
-                msg:'Password not matched'
-            })
-         }
-        
-        res.status(200).json({
-            success:true,
-            message:"User loged in Successfully",
-            user
-        })
-    } catch (error) {
-        res.status(500).send({message:error.message})
-    }
+  if (!email || typeof password !== "string" || !password) {
+    return res.status(400).json({
+      success: false,
+      message: "Email and password are required.",
+    });
   }
+
+  try {
+    const user = await AdminModel.findOne({ email });
+
+    if (!user || user.role !== "admin") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+      });
+    }
+
+    // Await the bcrypt result so the actual password comparison is checked.
+    const passwordMatches = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+      });
+    }
+
+    // Send only the account fields the frontend needs.
+    return res.status(200).json({
+      success: true,
+      message: "Admin logged in successfully.",
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Admin login error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
+};

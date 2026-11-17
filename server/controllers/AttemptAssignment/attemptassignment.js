@@ -1,5 +1,5 @@
 const AssignmentAtpModel = require("../../models/AttemptAssignment/attemptassignment");
-const { findById } = require("../../models/Autrh/auth");
+const { findById } = require("../../models/Auth/auth");
 
 exports.Attemptassignment = async (req, res) => {
   const { assignmentAnswer, assignment, attemptBy } = req.body;
@@ -30,7 +30,7 @@ exports.GetAllassignmentAttemps = async (req, res) => {
   try {
     const allassignmentAttempts = await AssignmentAtpModel.find().populate(
       "attemptBy",
-      "assignment"
+      "assignment",
     );
     console.log(allassignmentAttempts);
     res.status(200).json({
